@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<style>
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+body {
+  height: 100vh;
+  margin: 0;
+}
+.hidden {
+  display: none;
+}
+#toolTip {
+  position: fixed;
+  background-color: #333;
+  color: #f3f3f3;
+  padding: 0.5em;
+  border-radius: 0.25em;
+  font-family: arial;
+  margin-left: -0.5em;
+}
+#toolTip:before {
+    content:"";
+    border-style: solid;
+    border-width: 10px 15px 10px 0;
+    border-color: transparent #333 transparent transparent;
+    position: absolute;
+    left: -0.5em;
+}
+</style>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+</head>
+<body>
+<div id="toolTip" class="hidden">
+</div>
+<script>
+
+var margin = {top: 0, right: 20, bottom: 80, left: 40},
+    width = document.currentScript.parentNode.clientWidth * 0.8 - margin.left - margin.right,
+    height = document.currentScript.parentNode.clientHeight - margin.top - margin.bottom;
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.ordinal()
+    .rangeRoundBands([height, 0], .1);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(5);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+var currentChart = "chart0.json"
+d3.json(currentChart, function(error, data) {
+  // cleaning data. d3.json() does not have any accessor methods (e.g. type(d))
+  var title = data["title"]
+  data = data["albums"]
+
+  x.domain(Array.apply(null, {length: data.length}).map(Number.call, Number))
+
+  var y_domain = [],
+      sizes = data.map(function(d) { return d.length - 2; });
+      max_size = d3.max(sizes);
+  while(max_size--) y_domain[max_size] = max_size;
+  y.domain(y_domain);
+
+  // flatten out data
+  var temp_data = [];
+  // each album
+  for (var i = data.length - 1; i >= 0; i--) {
+    // each song
+    for (var j = data[i].length - 1; j >= 0; j--) {
+      var doc = data[i][j];
+      temp_data.push({
+        "url": doc[0].split(":")[1],
+        "song": doc[1],
+        "album": i,
+        "num": j
+      });
+     };
+  };
+  data = temp_data;
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+        // .selectAll("text")
+        // .text(function(d) { return d.substring(5,d.length).replace('-', '/'); })
+      .append("text")
+        .text("Clustered " + title)
+        .attr("y", y.rangeBand() * 2)
+        .style("font-size", "24px");
+
+
+  var images = svg.selectAll("image")
+      .data(data)
+    .enter()/*.append("g")
+      .on('mouseover', showTip)
+      .on('mouseout', hideTip)*/
+      .append("svg:image")
+      .attr("xlink:href", function(d) { return d.url; })
+      .attr("x", function(d) { return x(d.album); })
+      .attr("y", function(d) { return height - ((d.num + 1) * y.rangeBand()); })
+      .attr("width", x.rangeBand())
+      .attr("height", y.rangeBand())
+      .on('mouseover', showTip)
+      .on('mouseout', hideTip)
+      // .select(function(){return this.parentNode})
+      // .append("text")
+      // .attr("width", x.rangeBand())
+      // .attr("height", y.rangeBand() * 1.5)
+      // .attr("x", function(d) { return x(d.album); })
+      // .attr("y", function(d) { return height - ((d.num + 1) * y.rangeBand() * 1.5); })
+      // // .append('text')
+      // .text(function(d) {return d["song"]})
+      // .attr("fill", "#333")
+      // .on('mouseover', function(d) { mouseOver(d); })    
+
+});
+
+function tipPosition(element) {
+  var bbox = element.getBBox()
+  return [bbox.x + bbox.width + Math.min(bbox.width, bbox.height) * 1.5, bbox.y + bbox.height / 2]
+}
+
+var toolTip = document.getElementById('toolTip')
+function showTip(d) {
+  toolTip.classList.remove('hidden')
+  var coordinates = tipPosition(this)
+  toolTip.innerHTML = d["song"]
+  toolTip.style.left = (coordinates[0]) + "px"
+  toolTip.style.top = (coordinates[1] - toolTip.clientHeight / 2) + "px"
+
+}
+
+function hideTip(d) {
+  toolTip.classList.add('hidden')
+}
+
+function mouseOver(d) {
+  console.log(d["song"])
+}
+
+function pad(n, width, z) {
+  z = z || '0';
+  n = n + '';
+  return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+}
+</script>
+
+<script>window.twttr = (function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0],
+    t = window.twttr || {};
+  if (d.getElementById(id)) return;
+  js = d.createElement(s);
+  js.id = id;
+  js.src = "https://platform.twitter.com/widgets.js";
+  fjs.parentNode.insertBefore(js, fjs);
+ 
+  t._e = [];
+  t.ready = function(f) {
+    t._e.push(f);
+  };
+ 
+  return t;
+}(document, "script", "twitter-wjs"));</script>
